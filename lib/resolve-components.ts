@@ -4,7 +4,185 @@
  * Applies component variable overrides during resolution
  */
 
-import type { Layer, Component, ComponentVariable, ComponentVariableValue } from '@/types';
+import type { Layer, Component, ComponentVariable, ComponentVariableValue, LayerVariables } from '@/types';
+
+/**
+ * Remap collection_layer_id in a FieldVariable using the ID map.
+ * Returns a new object if remapped, or the original if unchanged.
+ */
+function remapFieldVariable(fv: any, idMap: Map<string, string>): any {
+  if (fv?.type !== 'field' || !fv?.data?.collection_layer_id) return fv;
+  const mapped = idMap.get(fv.data.collection_layer_id);
+  if (!mapped) return fv;
+  return { ...fv, data: { ...fv.data, collection_layer_id: mapped } };
+}
+
+/**
+ * Remap collection_layer_id references in DesignColorVariable fields/stops.
+ */
+function remapDesignColor(dcv: any, idMap: Map<string, string>): any {
+  if (!dcv || dcv.type !== 'color') return dcv;
+  let changed = false;
+  const result = { ...dcv };
+  if (dcv.field) {
+    const remapped = remapFieldVariable(dcv.field, idMap);
+    if (remapped !== dcv.field) { result.field = remapped; changed = true; }
+  }
+  for (const key of ['linear', 'radial'] as const) {
+    if (dcv[key]?.stops?.length) {
+      const newStops = dcv[key].stops.map((s: any) => {
+        if (!s.field) return s;
+        const rf = remapFieldVariable(s.field, idMap);
+        if (rf !== s.field) { changed = true; return { ...s, field: rf }; }
+        return s;
+      });
+      if (changed) result[key] = { ...dcv[key], stops: newStops };
+    }
+  }
+  return changed ? result : dcv;
+}
+
+/**
+ * Remap collection_layer_id inside inline variable JSON tags and Tiptap rich text nodes.
+ */
+function remapCollectionLayerIdsInContent(content: any, idMap: Map<string, string>): any {
+  if (typeof content === 'string') {
+    // Remap in inline variable tags: <ycode-inline-variable>{"...collection_layer_id":"old"...}</ycode-inline-variable>
+    return content.replace(
+      /<ycode-inline-variable>([\s\S]*?)<\/ycode-inline-variable>/g,
+      (match, inner) => {
+        try {
+          const parsed = JSON.parse(inner.trim());
+          const clid = parsed?.data?.collection_layer_id;
+          if (clid && idMap.has(clid)) {
+            parsed.data.collection_layer_id = idMap.get(clid);
+            return `<ycode-inline-variable>${JSON.stringify(parsed)}</ycode-inline-variable>`;
+          }
+        } catch { /* not valid JSON, leave as-is */ }
+        return match;
+      }
+    );
+  }
+  // Tiptap JSON: walk nodes and remap dynamicVariable attrs
+  if (content && typeof content === 'object') {
+    return remapTiptapNodes(content, idMap);
+  }
+  return content;
+}
+
+/** Recursively remap collection_layer_id in Tiptap JSON tree */
+function remapTiptapNodes(node: any, idMap: Map<string, string>): any {
+  if (!node || typeof node !== 'object') return node;
+  let changed = false;
+  let result = node;
+
+  if (node.attrs?.variable?.data?.collection_layer_id) {
+    const clid = node.attrs.variable.data.collection_layer_id;
+    const mapped = idMap.get(clid);
+    if (mapped) {
+      result = {
+        ...node,
+        attrs: {
+          ...node.attrs,
+          variable: {
+            ...node.attrs.variable,
+            data: { ...node.attrs.variable.data, collection_layer_id: mapped },
+          },
+        },
+      };
+      changed = true;
+    }
+  }
+
+  if (Array.isArray(node.content)) {
+    const newContent = node.content.map((child: any) => remapTiptapNodes(child, idMap));
+    if (newContent.some((c: any, i: number) => c !== node.content[i])) {
+      result = { ...(changed ? result : node), content: newContent };
+    }
+  }
+  return result;
+}
+
+/**
+ * Remap all collection_layer_id references in a layer's variables.
+ * Ensures layerDataMap lookups match transformed collection layer IDs.
+ */
+function remapVariableCollectionLayerIds(vars: LayerVariables, idMap: Map<string, string>): LayerVariables {
+  let changed = false;
+  const result: LayerVariables = { ...vars };
+
+  // Text content (inline variables in dynamic_text, Tiptap nodes in dynamic_rich_text)
+  if (vars.text) {
+    const tv = vars.text as any;
+    if (tv.type === 'dynamic_text' && typeof tv.data?.content === 'string' && tv.data.content.includes('collection_layer_id')) {
+      const newContent = remapCollectionLayerIdsInContent(tv.data.content, idMap);
+      if (newContent !== tv.data.content) {
+        result.text = { ...tv, data: { ...tv.data, content: newContent } } as any;
+        changed = true;
+      }
+    } else if (tv.type === 'dynamic_rich_text' && tv.data?.content) {
+      const newContent = remapCollectionLayerIdsInContent(tv.data.content, idMap);
+      if (newContent !== tv.data.content) {
+        result.text = { ...tv, data: { ...tv.data, content: newContent } } as any;
+        changed = true;
+      }
+    }
+  }
+
+  // Image src
+  if (vars.image?.src) {
+    const r = remapFieldVariable(vars.image.src, idMap);
+    if (r !== vars.image.src) { result.image = { ...vars.image, src: r }; changed = true; }
+  }
+
+  // Audio src
+  if (vars.audio?.src) {
+    const r = remapFieldVariable(vars.audio.src, idMap);
+    if (r !== vars.audio.src) { result.audio = { ...vars.audio, src: r }; changed = true; }
+  }
+
+  // Video src + poster
+  if (vars.video) {
+    let videoChanged = false;
+    const newVideo = { ...vars.video };
+    if (vars.video.src) {
+      const r = remapFieldVariable(vars.video.src, idMap);
+      if (r !== vars.video.src) { newVideo.src = r; videoChanged = true; }
+    }
+    if (vars.video.poster) {
+      const r = remapFieldVariable(vars.video.poster, idMap);
+      if (r !== vars.video.poster) { newVideo.poster = r; videoChanged = true; }
+    }
+    if (videoChanged) { result.video = newVideo; changed = true; }
+  }
+
+  // Background image src
+  if (vars.backgroundImage?.src) {
+    const r = remapFieldVariable(vars.backgroundImage.src, idMap);
+    if (r !== vars.backgroundImage.src) { result.backgroundImage = { ...vars.backgroundImage, src: r }; changed = true; }
+  }
+
+  // Link field
+  if (vars.link?.field) {
+    const r = remapFieldVariable(vars.link.field, idMap);
+    if (r !== vars.link.field) { result.link = { ...vars.link, field: r }; changed = true; }
+  }
+
+  // Design color bindings
+  if (vars.design) {
+    let designChanged = false;
+    const newDesign = { ...vars.design };
+    for (const key of ['backgroundColor', 'color', 'borderColor', 'divideColor', 'textDecorationColor'] as const) {
+      if (vars.design[key]) {
+        const r = remapDesignColor(vars.design[key], idMap);
+        if (r !== vars.design[key]) { (newDesign as any)[key] = r; designChanged = true; }
+      }
+    }
+    if (designChanged) { result.design = newDesign; changed = true; }
+  }
+
+  return changed ? result : vars;
+}
 
 /**
  * Transform layer IDs to be instance-specific to ensure unique IDs per component instance.
@@ -49,6 +227,12 @@ export function transformLayerIdsForInstance(layers: Layer[], instanceLayerId: s
           layer_id: idMap.get(tween.layer_id) || tween.layer_id,
         })),
       }));
+    }
+
+    // Remap collection_layer_id references in field variables so
+    // layerDataMap lookups match the transformed collection layer IDs
+    if (layer.variables) {
+      transformedLayer.variables = remapVariableCollectionLayerIds(layer.variables, idMap);
     }
 
     // Recursively transform children

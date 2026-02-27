@@ -2,7 +2,6 @@ import AnimationInitializer from '@/components/AnimationInitializer';
 import ContentHeightReporter from '@/components/ContentHeightReporter';
 import LayerRenderer from '@/components/LayerRenderer';
 import PasswordForm from '@/components/PasswordForm';
-import { resolveComponents } from '@/lib/resolve-components';
 import { resolveCustomCodePlaceholders } from '@/lib/resolve-cms-variables';
 import { generateInitialAnimationCSS, type HiddenLayerInfo } from '@/lib/animation-utils';
 import { buildCustomFontsCss, buildFontClassesCss, getGoogleFontLinks } from '@/lib/font-utils';
@@ -89,11 +88,9 @@ export default async function PageRenderer({
 }: PageRendererProps) {
   // Check if this is a 401 error page that needs password form
   const is401Page = page.error_page === 401;
-  // Resolve component instances in the layer tree before rendering
-  // If components array is empty, they're already resolved server-side
-  const resolvedLayers = components.length > 0
-    ? resolveComponents(layers || [], components)
-    : layers || [];
+  // Layers are always pre-resolved by the caller (page-fetcher).
+  // Components are passed through for rich-text embedded component rendering in LayerRenderer.
+  const resolvedLayers = layers || [];
 
   // Scan layers for collection_item_ids referenced in link settings
   // Excludes special keywords like 'current-page' and 'current-collection' which are resolved at runtime

@@ -670,12 +670,14 @@ function renderInlineContent(
 /**
  * Callback for rendering an embedded component block inside rich-text.
  * Receives the resolved component, its layers with overrides applied, and a unique key.
+ * `ancestorComponentIds` tracks the component chain to prevent infinite loops.
  */
 export type RenderComponentBlockFn = (
   component: Component,
   resolvedLayers: import('@/types').Layer[],
   overrides: import('@/types').Layer['componentOverrides'],
   key: string,
+  ancestorComponentIds?: Set<string>,
 ) => React.ReactNode;
 
 /**
@@ -707,6 +709,15 @@ function renderRichTextComponentBlock(
     return React.createElement('span', { key, 'data-component-id': componentId }, `[${component.name}]`);
   }
 
+  // Build updated ancestor set including the current component
+  const updatedAncestors = new Set(ancestorComponentIds);
+  updatedAncestors.add(componentId);
+
+  // Use pre-resolved layers (from server-side resolveRichTextCollections) when available
+  if (block.attrs._resolvedLayers) {
+    return renderComponentBlock(component, block.attrs._resolvedLayers, overrides, key, updatedAncestors);
+  }
+
   const withOverrides = applyComponentOverrides(
     component.layers,
     overrides,
@@ -718,7 +729,7 @@ function renderRichTextComponentBlock(
     ? resolveComponents(withOverrides, components, component.variables, overrides)
     : withOverrides;
 
-  return renderComponentBlock(component, resolvedLayers, overrides, key);
+  return renderComponentBlock(component, resolvedLayers, overrides, key, updatedAncestors);
 }
 
 /**

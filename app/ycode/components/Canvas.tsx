@@ -135,6 +135,13 @@ function CanvasContent({
   editorHiddenLayerIds,
   editorBreakpoint,
 }: CanvasContentProps) {
+  // Seed ancestor set with the component being edited so its own rich-text
+  // collection data cannot re-embed itself (prevents infinite loops)
+  const initialAncestorIds = useMemo(
+    () => editingComponentId ? new Set([editingComponentId]) : undefined,
+    [editingComponentId]
+  );
+
   // Handle click on canvas body (select body when clicking on empty space)
   const handleBodyClick = (event: React.MouseEvent) => {
     // Only select body if clicking directly on it (not on a child layer)
@@ -167,9 +174,10 @@ function CanvasContent({
           editingComponentVariables={editingComponentVariables}
           editorHiddenLayerIds={editorHiddenLayerIds}
           editorBreakpoint={editorBreakpoint}
+          ancestorComponentIds={initialAncestorIds}
         />
       ) : (
-        <div className="flex items-center justify-center min-h-[200px] text-gray-400">
+        <div className="flex items-center justify-center min-h-50 text-gray-400">
           No layers to display
         </div>
       )}

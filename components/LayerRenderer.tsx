@@ -112,6 +112,8 @@ interface LayerRendererProps {
   resolvedAssets?: Record<string, string>;
   /** Components for resolving embedded component nodes in rich-text (preview/published) */
   components?: Component[];
+  /** Component IDs in the rendering chain, used to prevent circular loops through collection rich-text data */
+  ancestorComponentIds?: Set<string>;
 }
 
 const LayerRenderer: React.FC<LayerRendererProps> = ({
@@ -154,6 +156,7 @@ const LayerRenderer: React.FC<LayerRendererProps> = ({
   anchorMap: anchorMapProp,
   resolvedAssets,
   components: componentsProp,
+  ancestorComponentIds,
 }) => {
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState<string>('');
@@ -265,6 +268,7 @@ const LayerRenderer: React.FC<LayerRendererProps> = ({
         anchorMap={anchorMap}
         resolvedAssets={resolvedAssets}
         components={componentsProp}
+        ancestorComponentIds={ancestorComponentIds}
       />
     );
   };
@@ -323,6 +327,7 @@ const LayerItem: React.FC<{
   anchorMap?: Record<string, string>; // Pre-built map of layerId -> anchor value
   resolvedAssets?: Record<string, string>;
   components?: Component[];
+  ancestorComponentIds?: Set<string>;
 }> = ({
   layer,
   isEditMode,
@@ -369,6 +374,7 @@ const LayerItem: React.FC<{
   anchorMap,
   resolvedAssets,
   components: componentsProp,
+  ancestorComponentIds,
 }) => {
   const isSelected = selectedLayerId === layer.id;
   const isHovered = hoveredLayerId === layer.id;
@@ -393,6 +399,13 @@ const LayerItem: React.FC<{
     ...layerDataMap,
     ...(layer._layerDataMap || {}),
   }), [layerDataMap, layer._layerDataMap]);
+  // Track component scope for circular reference detection (works in both edit and published modes)
+  const effectiveAncestorIds = useMemo(() => {
+    if (!layer.componentId) return ancestorComponentIds;
+    const set = new Set(ancestorComponentIds);
+    set.add(layer.componentId);
+    return set;
+  }, [ancestorComponentIds, layer.componentId]);
   const getAssetFromStore = useAssetsStore((state) => state.getAsset);
   const assetsById = useAssetsStore((state) => state.assetsById);
   const timezone = useSettingsStore((state) => state.settingsByKey.timezone as string | null) ?? 'UTC';
@@ -463,7 +476,7 @@ const LayerItem: React.FC<{
   // Callback for rendering embedded components inside rich-text content
   // Clicks on the embedded component's internal layers should select the text layer
   const renderComponentBlock: RenderComponentBlockFn = useCallback(
-    (comp, resolvedLayers, _overrides, key) => {
+    (comp, resolvedLayers, _overrides, key, innerAncestorIds) => {
       const uniqueLayers = transformLayerIdsForInstance(
         resolvedLayers,
         `${layer.id}-rtc-${key}`
@@ -476,6 +489,7 @@ const LayerItem: React.FC<{
               layers={uniqueLayers}
               {...sharedRendererProps}
               parentComponentLayerId={layer.id}
+              ancestorComponentIds={innerAncestorIds}
             />
           </div>
         ) : (
@@ -484,6 +498,7 @@ const LayerItem: React.FC<{
               layers={uniqueLayers}
               {...sharedRendererProps}
               parentComponentLayerId={layer.id}
+              ancestorComponentIds={innerAncestorIds}
             />
             <AnimationInitializer layers={uniqueLayers} />
           </>
@@ -664,7 +679,7 @@ const LayerItem: React.FC<{
       if (valueToRender !== undefined) {
         // Value is typed as ComponentVariableValue - check if it's a text variable (has 'type' property)
         if ('type' in valueToRender && valueToRender.type === 'dynamic_rich_text') {
-          return renderRichText(valueToRender as any, collectionLayerData, pageCollectionItemData || undefined, layer.textStyles, useSpanForParagraphs, isEditMode, linkContext, timezone, effectiveLayerDataMap, allComponents, renderComponentBlock);
+          return renderRichText(valueToRender as any, collectionLayerData, pageCollectionItemData || undefined, layer.textStyles, useSpanForParagraphs, isEditMode, linkContext, timezone, effectiveLayerDataMap, allComponents, renderComponentBlock, effectiveAncestorIds);
         }
         if ('type' in valueToRender && valueToRender.type === 'dynamic_text') {
           return (valueToRender as any).data.content;
@@ -679,7 +694,7 @@ const LayerItem: React.FC<{
     if (textVariable?.type === 'dynamic_rich_text') {
       // Render rich text with formatting (bold, italic, etc.) and inline variables
       // In edit mode, adds data-style attributes for style selection
-      return renderRichText(textVariable as any, collectionLayerData, pageCollectionItemData || undefined, layer.textStyles, useSpanForParagraphs, isEditMode, linkContext, timezone, effectiveLayerDataMap, allComponents, renderComponentBlock);
+      return renderRichText(textVariable as any, collectionLayerData, pageCollectionItemData || undefined, layer.textStyles, useSpanForParagraphs, isEditMode, linkContext, timezone, effectiveLayerDataMap, allComponents, renderComponentBlock, effectiveAncestorIds);
     }
 
     // Check for inline variables in DynamicTextVariable format (legacy)
@@ -1164,6 +1179,7 @@ const LayerItem: React.FC<{
           parentComponentLayerId={layer.id}
           parentComponentOverrides={effectiveOverrides}
           parentComponentVariables={component?.variables}
+          ancestorComponentIds={effectiveAncestorIds}
         />
       );
     }
@@ -1942,6 +1958,7 @@ const LayerItem: React.FC<{
               isInsideForm={isInsideForm}
               parentFormSettings={parentFormSettings}
               components={componentsProp}
+              ancestorComponentIds={effectiveAncestorIds}
             />
           )}
         </Tag>
@@ -2121,6 +2138,7 @@ const LayerItem: React.FC<{
                     anchorMap={anchorMap}
                     resolvedAssets={resolvedAssets}
                     components={componentsProp}
+                    ancestorComponentIds={effectiveAncestorIds}
                   />
                 )}
               </Tag>
@@ -2185,6 +2203,7 @@ const LayerItem: React.FC<{
               isInsideForm={isInsideForm || htmlTag === 'form'}
               parentFormSettings={htmlTag === 'form' ? layer.settings?.form : parentFormSettings}
               components={componentsProp}
+              ancestorComponentIds={effectiveAncestorIds}
             />
           )}
 
@@ -2253,6 +2272,7 @@ const LayerItem: React.FC<{
             anchorMap={anchorMap}
             resolvedAssets={resolvedAssets}
             components={componentsProp}
+            ancestorComponentIds={effectiveAncestorIds}
           />
         )}
       </Tag>

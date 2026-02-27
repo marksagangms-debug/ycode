@@ -324,8 +324,6 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
   const [componentPickerOpen, setComponentPickerOpen] = useState(false);
   // Track if update is coming from editor to prevent infinite loop
   const isInternalUpdateRef = useRef(false);
-  // Skip the first value-sync effect — the editor already has correct content from `content` option
-  const isInitialMountRef = useRef(true);
 
   // Derive a flat list of fields from fieldGroups (for internal use like parseValueToContent)
   const fields = useMemo(() => flattenFieldGroups(fieldGroups), [fieldGroups]);
@@ -476,6 +474,9 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
         doc: state.doc,
         plugins: state.plugins,
       }));
+      // updateState may trigger onUpdate which sets isInternalUpdateRef;
+      // clear it so the next external value-sync effect is not blocked
+      isInternalUpdateRef.current = false;
     },
     onFocus: () => {},
     onBlur: () => {
@@ -507,12 +508,6 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
   // Update editor content when value or fields change externally
   useEffect(() => {
     if (!editor) return;
-
-    // Skip the initial mount — content option already set the correct value
-    if (isInitialMountRef.current) {
-      isInitialMountRef.current = false;
-      return;
-    }
 
     // Skip updates when editor is disabled (e.g., during canvas text editing)
     if (!editor.isEditable) {

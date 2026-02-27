@@ -55,6 +55,23 @@ export const RichTextComponent = Node.create({
         }
         return false;
       },
+      /** Move cursor before the component node, creating a paragraph if needed. */
+      handleArrowBefore(editor: any, typeName: string): boolean {
+        const { selection } = editor.state;
+        const node = editor.state.doc.nodeAt(selection.from);
+        if (node?.type.name !== typeName) return false;
+
+        const pos = selection.from;
+        const $pos = editor.state.doc.resolve(pos);
+
+        if ($pos.index() === 0) {
+          editor.chain()
+            .insertContentAt(pos, { type: 'paragraph' })
+            .run();
+          return true;
+        }
+        return false;
+      },
     };
   },
 
@@ -161,6 +178,8 @@ export const RichTextComponent = Node.create({
 
       ArrowDown: ({ editor }) => this.storage.handleArrowAfter(editor, this.name),
       ArrowRight: ({ editor }) => this.storage.handleArrowAfter(editor, this.name),
+      ArrowUp: ({ editor }) => this.storage.handleArrowBefore(editor, this.name),
+      ArrowLeft: ({ editor }) => this.storage.handleArrowBefore(editor, this.name),
     };
   },
 });

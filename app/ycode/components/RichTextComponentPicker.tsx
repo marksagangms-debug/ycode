@@ -5,7 +5,7 @@
  * Mirrors the sidebar pattern from the legacy project.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -17,8 +17,12 @@ import Icon from '@/components/ui/icon';
 import { Empty, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { useEditorStore } from '@/stores/useEditorStore';
-import { isCircularComponentReference } from '@/lib/component-utils';
+import { isCircularComponentReference, checkCircularReference } from '@/lib/component-utils';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import ComponentCard from './ComponentCard';
+
+import type { Layer } from '@/types';
 
 interface RichTextComponentPickerProps {
   onSelect: (componentId: string) => void;
@@ -37,32 +41,43 @@ export default function RichTextComponentPicker({
   const editingComponentId = useEditorStore(state => state.editingComponentId);
   const [search, setSearch] = useState('');
 
-  const filteredComponents = useMemo(() => {
-    let list = components;
+  const circularIds = useMemo(() => {
+    if (!editingComponentId) return new Set<string>();
+    return new Set(
+      components
+        .filter(c => isCircularComponentReference(editingComponentId, c.id, components))
+        .map(c => c.id)
+    );
+  }, [components, editingComponentId]);
 
-    // When editing a component, exclude components that would create a circular reference
-    if (editingComponentId) {
-      list = list.filter(c =>
-        !isCircularComponentReference(editingComponentId, c.id, components)
-      );
+  const matchingIds = useMemo(() => {
+    if (!search.trim()) return null;
+    const query = search.toLowerCase();
+    return new Set(
+      components.filter(c => c.name.toLowerCase().includes(query)).map(c => c.id)
+    );
+  }, [components, search]);
+
+  const hasResults = !matchingIds || matchingIds.size > 0;
+
+  const handleSelect = useCallback((componentId: string) => {
+    if (circularIds.has(componentId)) {
+      const fakeLayer = { id: '_check', name: 'div', componentId } as Layer;
+      const description = editingComponentId
+        ? checkCircularReference(editingComponentId, fakeLayer, components)
+        : null;
+      toast.error('Infinite component loop detected', {
+        description: description ?? undefined,
+      });
+      return;
     }
 
-    if (search.trim()) {
-      const query = search.toLowerCase();
-      list = list.filter(c => c.name.toLowerCase().includes(query));
-    }
-
-    return list;
-  }, [components, editingComponentId, search]);
-
-  const handleSelect = (componentId: string) => {
     onOpenChange(false);
     setSearch('');
-    // Defer insertion so the Sheet fully unmounts before the editor regains focus
     requestAnimationFrame(() => {
       onSelect(componentId);
     });
-  };
+  }, [circularIds, editingComponentId, components, onOpenChange, onSelect]);
 
   return (
     <Sheet
@@ -95,7 +110,7 @@ export default function RichTextComponentPicker({
           </div>
         </div>
 
-        {filteredComponents.length === 0 ? (
+        {!hasResults && (
           <Empty>
             <EmptyMedia variant="icon">
               <Icon name="component" className="size-4" />
@@ -104,18 +119,24 @@ export default function RichTextComponentPicker({
               {search.trim() ? 'No matching components' : 'No components available'}
             </EmptyTitle>
           </Empty>
-        ) : (
-          <div className="grid grid-cols-1 gap-1.5">
-            {filteredComponents.map(component => (
+        )}
+        <div className={cn('grid grid-cols-1 gap-1.5', !hasResults && 'hidden')}>
+          {components.map(component => {
+            const isHidden = matchingIds && !matchingIds.has(component.id);
+            return (
               <ComponentCard
                 key={component.id}
                 component={component}
                 onClick={() => handleSelect(component.id)}
                 disabled={disabled}
+                className={cn(
+                  circularIds.has(component.id) && 'opacity-40',
+                  isHidden && 'hidden',
+                )}
               />
-            ))}
-          </div>
-        )}
+            );
+          })}
+        </div>
       </SheetContent>
     </Sheet>
   );

@@ -328,7 +328,7 @@ export async function fetchPageByPath(
             ...homepageData.pageLayers,
             layers: processedLayers,
           },
-          components: [],  // Components already resolved into layers
+          components: homepageData.components, // Layers are pre-resolved; components passed for rich-text embedded rendering
           locale: detectedLocale,
           availableLocales: availableLocales as Locale[] || [],
           translations,
@@ -459,6 +459,9 @@ export async function fetchPageByPath(
               ? await resolveCollectionLayers(layersWithInjectedData, isPublished, enhancedItemValues, paginationContext, translations)
               : [];
 
+            // Resolve collections inside rich text embedded components
+            resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, translations);
+
             // Apply translations (components already resolved above)
             if (detectedLocale && translations && Object.keys(translations).length > 0) {
               resolvedLayers = injectTranslatedText(resolvedLayers, matchingPage.id, translations);
@@ -474,7 +477,7 @@ export async function fetchPageByPath(
                 ...pageLayers,
                 layers: resolvedLayers,
               },
-              components: [],  // Components already resolved into layers
+              components, // Layers are pre-resolved; components passed for rich-text embedded rendering
               collectionItem: enhancedCollectionItem, // Include enhanced collection item for dynamic pages
               collectionFields, // Include collection fields for resolving placeholders
               locale: detectedLocale,
@@ -515,6 +518,9 @@ export async function fetchPageByPath(
       ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, paginationContext, translations)
       : [];
 
+    // Resolve collections inside rich text embedded components
+    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished, translations);
+
     // Apply translations (components already resolved above)
     if (detectedLocale && translations && Object.keys(translations).length > 0) {
       resolvedLayers = injectTranslatedText(resolvedLayers, matchingPage.id, translations);
@@ -530,7 +536,7 @@ export async function fetchPageByPath(
         ...pageLayers,
         layers: resolvedLayers,
       },
-      components: [],  // Components already resolved into layers
+      components, // Layers are pre-resolved; components passed for rich-text embedded rendering
       locale: detectedLocale,
       availableLocales: availableLocales as Locale[] || [],
       translations,
@@ -605,6 +611,9 @@ export async function fetchErrorPage(
       ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, undefined, undefined)
       : [];
 
+    // Resolve collections inside rich text embedded components
+    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished);
+
     // Resolve all AssetVariables to URLs server-side (prevents client-side API calls)
     const resolved = await resolveAllAssets(resolvedLayers, isPublished, components);
     resolvedLayers = resolved.layers;
@@ -615,7 +624,7 @@ export async function fetchErrorPage(
         ...pageLayers,
         layers: resolvedLayers,
       },
-      components: [], // Components already resolved into layers
+      components, // Layers are pre-resolved; components passed for rich-text embedded rendering
       locale: null, // Error pages don't have locale context
       availableLocales: availableLocales as Locale[] || [],
       translations: {}, // Error pages don't have translations
@@ -694,6 +703,9 @@ export async function fetchHomepage(
       ? await resolveCollectionLayers(layersWithComponents, isPublished, undefined, paginationContext, undefined)
       : [];
 
+    // Resolve collections inside rich text embedded components
+    resolvedLayers = await resolveRichTextCollections(resolvedLayers, components, isPublished);
+
     // Resolve all AssetVariables to URLs server-side (prevents client-side API calls)
     const resolved = await resolveAllAssets(resolvedLayers, isPublished, components);
     resolvedLayers = resolved.layers;
@@ -704,7 +716,7 @@ export async function fetchHomepage(
         ...pageLayers,
         layers: resolvedLayers,
       },
-      components,
+      components, // Layers are pre-resolved; components passed for rich-text embedded rendering
       locale: null, // Homepage accessed without locale prefix
       availableLocales: availableLocales as Locale[] || [],
       translations: {}, // Homepage accessed without locale prefix
@@ -1375,6 +1387,129 @@ function remapLayerIdsForCollectionItem(layer: Layer, suffix: string): Layer {
   };
 
   return remapLayer(layer);
+}
+
+/**
+ * Walk Tiptap JSON nodes, resolve collections inside richTextComponent nodes,
+ * and store the result as `_resolvedLayers` so the renderer can use them directly.
+ * Tracks ancestor component IDs to prevent infinite circular resolution.
+ */
+async function resolveTiptapComponentCollections(
+  content: any,
+  components: Component[],
+  isPublished: boolean,
+  translations?: Record<string, Translation>,
+  ancestorComponentIds?: Set<string>,
+): Promise<any> {
+  if (!content || typeof content !== 'object') return content;
+
+  if (Array.isArray(content)) {
+    let changed = false;
+    const result = await Promise.all(
+      content.map(async (node: any) => {
+        const resolved = await resolveTiptapComponentCollections(node, components, isPublished, translations, ancestorComponentIds);
+        if (resolved !== node) changed = true;
+        return resolved;
+      })
+    );
+    return changed ? result : content;
+  }
+
+  let nodeChanged = false;
+  let node = content;
+
+  // Resolve richTextComponent nodes
+  if (node.type === 'richTextComponent' && node.attrs?.componentId) {
+    const componentId = node.attrs.componentId as string;
+
+    // Prevent circular resolution (component embedding itself)
+    if (!ancestorComponentIds?.has(componentId)) {
+      const comp = components.find(c => c.id === componentId);
+      if (comp?.layers?.length) {
+        const childAncestors = new Set(ancestorComponentIds);
+        childAncestors.add(componentId);
+
+        const overrides = node.attrs.componentOverrides ?? undefined;
+        const withOverrides = applyComponentOverrides(comp.layers, overrides, comp.variables);
+        const withComponents = resolveComponents(withOverrides, components, comp.variables, overrides);
+        const withCollections = await resolveCollectionLayers(withComponents, isPublished, undefined, undefined, translations);
+
+        // Recursively resolve rich text components inside the resolved layers
+        // (handles Component A → rich text → Component B → collection)
+        const fullyResolved = await resolveRichTextCollections(
+          withCollections, components, isPublished, translations, childAncestors,
+        );
+
+        node = {
+          ...node,
+          attrs: { ...node.attrs, _resolvedLayers: fullyResolved },
+        };
+        nodeChanged = true;
+      }
+    }
+  }
+
+  // Recurse into content array
+  if (Array.isArray(node.content)) {
+    const resolvedContent = await resolveTiptapComponentCollections(node.content, components, isPublished, translations, ancestorComponentIds);
+    if (resolvedContent !== node.content) {
+      node = { ...node, content: resolvedContent };
+      nodeChanged = true;
+    }
+  }
+
+  return nodeChanged ? node : content;
+}
+
+/**
+ * Pre-resolve collections inside rich text embedded components.
+ * Walks all layers, finds dynamic_rich_text variables with richTextComponent nodes,
+ * and resolves their collection layers server-side.
+ * Tracks ancestor component IDs to prevent infinite circular resolution.
+ */
+export async function resolveRichTextCollections(
+  layers: Layer[],
+  components: Component[],
+  isPublished: boolean,
+  translations?: Record<string, Translation>,
+  ancestorComponentIds?: Set<string>,
+): Promise<Layer[]> {
+  if (!components.length) return layers;
+
+  const resolveLayer = async (layer: Layer): Promise<Layer> => {
+    let updated = layer;
+
+    // Check if this layer has rich text with potential embedded components
+    const textVar = layer.variables?.text;
+    if (textVar?.type === 'dynamic_rich_text' && textVar.data?.content) {
+      const resolved = await resolveTiptapComponentCollections(
+        textVar.data.content, components, isPublished, translations, ancestorComponentIds,
+      );
+      if (resolved !== textVar.data.content) {
+        updated = {
+          ...updated,
+          variables: {
+            ...updated.variables,
+            text: { type: 'dynamic_rich_text', data: { content: resolved } },
+          },
+        };
+      }
+    }
+
+    // Recurse into children
+    if (updated.children?.length) {
+      const resolvedChildren = await Promise.all(
+        updated.children.map(child => resolveLayer(child))
+      );
+      if (resolvedChildren.some((c, i) => c !== updated.children![i])) {
+        updated = { ...updated, children: resolvedChildren };
+      }
+    }
+
+    return updated;
+  };
+
+  return Promise.all(layers.map(resolveLayer));
 }
 
 export async function resolveCollectionLayers(
@@ -2449,6 +2584,7 @@ function buildAnchorMap(layers: Layer[]): Record<string, string> {
 type RenderComponentHtmlFn = (
   componentId: string,
   overrides: Layer['componentOverrides'],
+  preResolvedLayers?: Layer[],
 ) => string;
 
 function renderTiptapToHtml(
@@ -2588,7 +2724,11 @@ function renderTiptapToHtml(
   // Handle embedded component blocks
   if (content.type === 'richTextComponent' && content.attrs?.componentId) {
     if (renderComponentHtml) {
-      return renderComponentHtml(content.attrs.componentId, content.attrs.componentOverrides ?? undefined);
+      return renderComponentHtml(
+        content.attrs.componentId,
+        content.attrs.componentOverrides ?? undefined,
+        content.attrs._resolvedLayers,
+      );
     }
     return `<div data-component-id="${escapeHtml(content.attrs.componentId)}"></div>`;
   }
@@ -3033,14 +3173,18 @@ function layerToHtml(
     } else if (textVariable.type === 'dynamic_rich_text') {
       // Build component renderer with circular reference prevention
       const componentRenderer: RenderComponentHtmlFn | undefined = components?.length
-        ? (componentId, overrides) => {
+        ? (componentId, overrides, preResolvedLayers) => {
           if (ancestorComponentIds?.has(componentId)) return '';
           const comp = components.find(c => c.id === componentId);
           if (!comp?.layers?.length) return '';
           const childAncestors = new Set(ancestorComponentIds);
           childAncestors.add(componentId);
-          const withOverrides = applyComponentOverrides(comp.layers, overrides, comp.variables);
-          const resolved = resolveComponents(withOverrides, components, comp.variables, overrides);
+          // Use pre-resolved layers (with collections) when available from resolveRichTextCollections
+          const resolved = preResolvedLayers
+            ?? resolveComponents(
+              applyComponentOverrides(comp.layers, overrides, comp.variables),
+              components, comp.variables, overrides,
+            );
           const withAssets = assetMap
             ? resolved.map(l => resolveLayerAssets(l, assetMap))
             : resolved;
