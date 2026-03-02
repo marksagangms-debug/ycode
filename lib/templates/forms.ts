@@ -116,13 +116,12 @@ export const formTemplates: Record<string, BlockTemplate> = {
         // Name input group
         {
           name: 'div',
+          settings: { tag: 'label' },
           classes: ['flex', 'flex-col', 'gap-1'],
           children: [
             getTemplateRef('text', {
               customName: 'Label',
-              settings: { tag: 'label' },
-              attributes: { for: 'name' },
-              classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]', 'cursor-pointer'],
+              classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]'],
               restrictions: { editText: true },
               design: {
                 typography: {
@@ -199,13 +198,12 @@ export const formTemplates: Record<string, BlockTemplate> = {
         // Email input group
         {
           name: 'div',
+          settings: { tag: 'label' },
           classes: ['flex', 'flex-col', 'gap-1'],
           children: [
             getTemplateRef('text', {
               customName: 'Label',
-              settings: { tag: 'label' },
-              attributes: { for: 'email' },
-              classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]', 'cursor-pointer'],
+              classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]'],
               restrictions: { editText: true },
               design: {
                 typography: {
@@ -282,13 +280,12 @@ export const formTemplates: Record<string, BlockTemplate> = {
         // Message textarea group
         {
           name: 'div',
+          settings: { tag: 'label' },
           classes: ['flex', 'flex-col', 'gap-1'],
           children: [
             getTemplateRef('text', {
               customName: 'Label',
-              settings: { tag: 'label' },
-              attributes: { for: 'message' },
-              classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]', 'cursor-pointer'],
+              classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]'],
               restrictions: { editText: true },
               design: {
                 typography: {
@@ -428,13 +425,12 @@ export const formTemplates: Record<string, BlockTemplate> = {
     name: 'Input',
     template: {
       name: 'div',
+      settings: { tag: 'label' },
       classes: ['w-full', 'flex', 'flex-col', 'gap-1'],
       children: [
         getTemplateRef('text', {
           customName: 'Label',
-          settings: { tag: 'label' },
-          attributes: { for: 'input' },
-          classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]', 'cursor-pointer'],
+          classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]'],
           restrictions: { editText: true },
           design: {
             typography: {
@@ -517,13 +513,12 @@ export const formTemplates: Record<string, BlockTemplate> = {
     name: 'Textarea',
     template: {
       name: 'div',
+      settings: { tag: 'label' },
       classes: ['w-full', 'flex', 'flex-col', 'gap-1'],
       children: [
         getTemplateRef('text', {
           customName: 'Label',
-          settings: { tag: 'label' },
-          attributes: { for: 'textarea' },
-          classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]', 'cursor-pointer'],
+          classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]'],
           restrictions: { editText: true },
           design: {
             typography: {
@@ -606,13 +601,12 @@ export const formTemplates: Record<string, BlockTemplate> = {
     name: 'Select',
     template: {
       name: 'div',
+      settings: { tag: 'label' },
       classes: ['w-full', 'flex', 'flex-col', 'gap-1'],
       children: [
         getTemplateRef('text', {
           customName: 'Label',
-          settings: { tag: 'label' },
-          attributes: { for: 'select' },
-          classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]', 'cursor-pointer'],
+          classes: ['block', 'text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]'],
           restrictions: { editText: true },
           design: {
             typography: {
@@ -717,6 +711,7 @@ export const formTemplates: Record<string, BlockTemplate> = {
     name: 'Checkbox',
     template: {
       name: 'div',
+      settings: { tag: 'label' },
       classes: ['w-full', 'flex', 'items-center', 'gap-2'],
       children: [
         {
@@ -748,9 +743,7 @@ export const formTemplates: Record<string, BlockTemplate> = {
         },
         getTemplateRef('text', {
           customName: 'Label',
-          settings: { tag: 'label' },
-          attributes: { for: 'checkbox' },
-          classes: ['text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]', 'cursor-pointer'],
+          classes: ['text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]'],
           restrictions: { editText: true },
           design: {
             typography: {
@@ -792,6 +785,7 @@ export const formTemplates: Record<string, BlockTemplate> = {
     name: 'Radio',
     template: {
       name: 'div',
+      settings: { tag: 'label' },
       classes: ['w-full', 'flex', 'items-center', 'gap-2'],
       children: [
         {
@@ -824,9 +818,7 @@ export const formTemplates: Record<string, BlockTemplate> = {
         },
         getTemplateRef('text', {
           customName: 'Label',
-          settings: { tag: 'label' },
-          attributes: { for: 'radio' },
-          classes: ['text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]', 'cursor-pointer'],
+          classes: ['text-[14px]', 'font-medium', 'text-[#404040]', 'tracking-tight', 'leading-[24px]'],
           restrictions: { editText: true },
           design: {
             typography: {

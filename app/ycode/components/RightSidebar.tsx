@@ -417,7 +417,7 @@ const RightSidebar = React.memo(function RightSidebar({
     const containerTags = [
       'div', 'container', 'section', 'nav', 'main', 'aside',
       'header', 'footer', 'article', 'figure', 'figcaption',
-      'details', 'summary'
+      'details', 'summary', 'label'
     ];
     return containerTags.includes(layer.name || '') ||
            containerTags.includes(layer.settings?.tag || '');
@@ -2419,6 +2419,7 @@ const RightSidebar = React.memo(function RightSidebar({
                           <SelectItem value="figcaption">Figcaption</SelectItem>
                           <SelectItem value="details">Details</SelectItem>
                           <SelectItem value="summary">Summary</SelectItem>
+                          <SelectItem value="label">Label</SelectItem>
                         </SelectGroup>
                       </SelectContent>
                     </Select>
