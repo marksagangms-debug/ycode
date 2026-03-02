@@ -19,7 +19,16 @@ import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectLabel, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectLabel,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectSeparator
+} from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 // 4. Internal components
@@ -93,6 +102,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface RightSidebarProps {
   selectedLayerId: string | null;
@@ -2819,18 +2829,19 @@ const RightSidebar = React.memo(function RightSidebar({
                         <Label variant="muted">Sort by</Label>
                         <div className="col-span-2 *:w-full">
                           {getCollectionVariable(selectedLayer)?.sort_by_inputLayerId ? (
-                            <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs">
-                              <Icon name="filter" className="size-3 text-muted-foreground shrink-0" />
-                              <span className="truncate text-foreground">
-                                {getSortLinkedInputName(getCollectionVariable(selectedLayer)!.sort_by_inputLayerId!)}
-                              </span>
-                              <button
-                                className="ml-auto shrink-0 text-muted-foreground hover:text-foreground"
-                                onClick={() => handleUnlinkSortInput('sort_by_inputLayerId')}
-                              >
-                                <Icon name="unlink" className="size-3" />
-                              </button>
-                            </div>
+                              <div className="flex items-center gap-1">
+                                <Input value={getSortLinkedInputName(getCollectionVariable(selectedLayer)!.sort_by_inputLayerId!)} disabled />
+                                <div className="shrink-0">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button variant="secondary" onClick={() => handleUnlinkSortInput('sort_by_inputLayerId')}>
+                                        <Icon name="x" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Unlink filter input</TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              </div>
                           ) : (
                             <Select
                               value={getCollectionVariable(selectedLayer)?.sort_by || 'none'}
@@ -2846,6 +2857,7 @@ const RightSidebar = React.memo(function RightSidebar({
                                   <SelectItem value="random">Random</SelectItem>
                                   <SelectItem value={SORT_INPUT_VALUE_OPTION}>Input value</SelectItem>
                                 </SelectGroup>
+                                <SelectSeparator />
                                 <SelectGroup>
                                   <SelectLabel>Fields</SelectLabel>
                                   {selectedCollectionFields.length > 0 &&
@@ -2875,18 +2887,21 @@ const RightSidebar = React.memo(function RightSidebar({
                             <Label variant="muted">Sort order</Label>
                             <div className="col-span-2 *:w-full">
                               {getCollectionVariable(selectedLayer)?.sort_order_inputLayerId ? (
-                                <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs">
-                                  <Icon name="filter" className="size-3 text-muted-foreground shrink-0" />
-                                  <span className="truncate text-foreground">
-                                    {getSortLinkedInputName(getCollectionVariable(selectedLayer)!.sort_order_inputLayerId!)}
-                                  </span>
-                                  <button
-                                    className="ml-auto shrink-0 text-muted-foreground hover:text-foreground"
-                                    onClick={() => handleUnlinkSortInput('sort_order_inputLayerId')}
-                                  >
-                                    <Icon name="unlink" className="size-3" />
-                                  </button>
-                                </div>
+
+                                  <div className="flex items-center gap-1">
+                                    <Input value={getSortLinkedInputName(getCollectionVariable(selectedLayer)!.sort_order_inputLayerId!)} disabled />
+                                    <div className="shrink-0">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button variant="secondary" onClick={() => handleUnlinkSortInput('sort_order_inputLayerId')}>
+                                            <Icon name="x" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Unlink filter input</TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  </div>
+
                               ) : (
                                 <Select
                                   value={getCollectionVariable(selectedLayer)?.sort_order || 'asc'}
@@ -2897,9 +2912,10 @@ const RightSidebar = React.memo(function RightSidebar({
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectGroup>
-                                      <SelectItem value={SORT_INPUT_VALUE_OPTION}>Input value</SelectItem>
                                       <SelectItem value="asc">Ascending</SelectItem>
                                       <SelectItem value="desc">Descending</SelectItem>
+                                      <SelectSeparator />
+                                      <SelectItem value={SORT_INPUT_VALUE_OPTION}>Input value</SelectItem>
                                     </SelectGroup>
                                   </SelectContent>
                                 </Select>
