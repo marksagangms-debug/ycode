@@ -28,8 +28,8 @@ interface LightboxState {
 }
 
 const CLOSE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>';
-const PREV_SVG = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>';
-const NEXT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>';
+const PREV_SVG = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>';
+const NEXT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>';
 
 export default function LightboxInitializer() {
   const [state, setState] = useState<LightboxState>({
@@ -221,14 +221,14 @@ export default function LightboxInitializer() {
 
   const btnBase = 'flex cursor-pointer items-center justify-center rounded-full transition-all duration-200 focus:outline-none';
   const btnTheme = isDark
-    ? 'bg-white/10 text-white hover:bg-white/25'
-    : 'bg-black/5 text-black hover:bg-black/15';
+    ? 'bg-white/10 text-white/60 hover:bg-white/25 hover:text-white'
+    : 'bg-black/5 text-black/70 hover:bg-black/15 hover:text-black';
 
   return (
     <div
       ref={modalRef}
       data-lightbox-modal
-      className={`fixed inset-0 z-9999 flex flex-col overflow-hidden overscroll-none text-sm ${isDark ? 'bg-black text-white' : 'bg-white text-black'}`}
+      className={`fixed inset-0 z-9999 flex flex-col overflow-hidden overscroll-none text-sm ${isDark ? 'bg-neutral-950 text-white' : 'bg-white text-black'}`}
       style={{
         animation: 'lightbox-fade-in 250ms ease-out',
       }}
