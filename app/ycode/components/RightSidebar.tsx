@@ -154,7 +154,6 @@ const RightSidebar = React.memo(function RightSidebar({
   }, [urlState.rightTab, activeTab]);
 
   const [currentClassInput, setCurrentClassInput] = useState<string>('');
-  const [attributesOpen, setAttributesOpen] = useState(true);
   const [customId, setCustomId] = useState<string>('');
   const [containerTag, setContainerTag] = useState<string>('div');
   const [textTag, setTextTag] = useState<string>('p');
@@ -1850,12 +1849,8 @@ const RightSidebar = React.memo(function RightSidebar({
 
         <TabsContent value="settings" className="flex-1 overflow-y-auto no-scrollbar mt-0 data-[state=inactive]:hidden">
           <div className="flex flex-col divide-y">
-            {/* Attributes Panel */}
-            <SettingsPanel
-              title="Attributes"
-              isOpen={attributesOpen}
-              onToggle={() => setAttributesOpen(!attributesOpen)}
-            >
+            {/* Attributes */}
+            <div className="flex flex-col gap-2 pb-5 pt-5">
               <div className="grid grid-cols-3">
                 <Label variant="muted">ID</Label>
                 <div className="col-span-2 *:w-full">
@@ -1863,7 +1858,7 @@ const RightSidebar = React.memo(function RightSidebar({
                     type="text"
                     value={customId}
                     onChange={(e) => handleIdChange(e.target.value)}
-                    placeholder="Identifier"
+                    placeholder="For in-page linking"
                     disabled={isLockedByOther}
                   />
                 </div>
@@ -1930,7 +1925,7 @@ const RightSidebar = React.memo(function RightSidebar({
                   </div>
                 </div>
               )}
-            </SettingsPanel>
+            </div>
 
             {/* Content Panel - show for text-editable layers */}
             {selectedLayer && isTextEditable(selectedLayer) && (() => {
