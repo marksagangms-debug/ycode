@@ -156,7 +156,6 @@ const RightSidebar = React.memo(function RightSidebar({
   const [currentClassInput, setCurrentClassInput] = useState<string>('');
   const [attributesOpen, setAttributesOpen] = useState(true);
   const [customId, setCustomId] = useState<string>('');
-  const [isHidden, setIsHidden] = useState<boolean>(false);
   const [containerTag, setContainerTag] = useState<string>('div');
   const [textTag, setTextTag] = useState<string>('p');
   const [customAttributesOpen, setCustomAttributesOpen] = useState(false);
@@ -681,7 +680,6 @@ const RightSidebar = React.memo(function RightSidebar({
   if (selectedLayerId !== prevSelectedLayerId) {
     setPrevSelectedLayerId(selectedLayerId);
     setCustomId(sanitizeHtmlId(selectedLayer?.settings?.id || selectedLayer?.attributes?.id || ''));
-    setIsHidden(selectedLayer?.settings?.hidden || false);
     setContainerTag(selectedLayer?.settings?.tag || getDefaultContainerTag(selectedLayer));
     setTextTag(selectedLayer?.settings?.tag || getDefaultTextTag(selectedLayer));
   }
@@ -790,17 +788,6 @@ const RightSidebar = React.memo(function RightSidebar({
       const currentSettings = selectedLayer?.settings || {};
       handleLayerUpdate(selectedLayerId, {
         settings: { ...currentSettings, id: sanitizedId }
-      });
-    }
-  };
-
-  // Handle visibility toggle
-  const handleVisibilityChange = (hidden: boolean) => {
-    setIsHidden(hidden);
-    if (selectedLayerId) {
-      const currentSettings = selectedLayer?.settings || {};
-      handleLayerUpdate(selectedLayerId, {
-        settings: { ...currentSettings, hidden }
       });
     }
   };
@@ -1881,23 +1868,6 @@ const RightSidebar = React.memo(function RightSidebar({
                   />
                 </div>
               </div>
-
-              {/* Element visibility toggle - hide for alert layers (they have built-in show/hide logic) */}
-              {!isAlertLayer(selectedLayer) && (
-                <div className="grid grid-cols-3">
-                  <Label variant="muted">Element</Label>
-                  <div className="col-span-2 *:w-full">
-                    <ToggleGroup
-                      options={[
-                        { label: 'Shown', value: false },
-                        { label: 'Hidden', value: true },
-                      ]}
-                      value={isHidden}
-                      onChange={(value) => handleVisibilityChange(value as boolean)}
-                    />
-                  </div>
-                </div>
-              )}
 
               {/* Container Tag Selector - Only for containers/sections/blocks, hide for alerts */}
               {isContainerLayer(selectedLayer) && !isHeadingLayer(selectedLayer) && !isAlertLayer(selectedLayer) && (
