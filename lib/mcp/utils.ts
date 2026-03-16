@@ -232,6 +232,43 @@ function blockToTiptapNode(block: RichTextBlock): TiptapNode {
   }
 }
 
+/**
+ * Normalize CSS values that don't map directly to Tailwind utilities.
+ * e.g., "flex-start" → "start", "space-between" → "between", "Flex" → "flex"
+ */
+function normalizeDesignValues(
+  design: Record<string, Record<string, unknown>>,
+): Record<string, Record<string, unknown>> {
+  const result = { ...design };
+
+  if (result.layout && typeof result.layout === 'object') {
+    const layout = { ...result.layout };
+
+    if (typeof layout.display === 'string') {
+      layout.display = layout.display.toLowerCase();
+    }
+
+    const flexValueMap: Record<string, string> = {
+      'flex-start': 'start',
+      'flex-end': 'end',
+      'space-between': 'between',
+      'space-around': 'around',
+      'space-evenly': 'evenly',
+    };
+
+    for (const prop of ['justifyContent', 'alignItems', 'alignContent'] as const) {
+      const val = layout[prop];
+      if (typeof val === 'string' && flexValueMap[val]) {
+        layout[prop] = flexValueMap[val];
+      }
+    }
+
+    result.layout = layout;
+  }
+
+  return result;
+}
+
 export function applyDesignToLayer(
   layer: Layer,
   design: Record<string, Record<string, unknown>>,
@@ -239,6 +276,9 @@ export function applyDesignToLayer(
   uiState: UIState = 'neutral',
 ): Layer {
   const isNeutralDesktop = breakpoint === 'desktop' && uiState === 'neutral';
+
+  // Normalize CSS values (flex-start→start, Flex→flex, etc.) before processing
+  design = normalizeDesignValues(design);
 
   // Extract bgGradientVars before processing — it's not a simple design property
   const bgGradientVars = (design.backgrounds as Record<string, unknown>)?.bgGradientVars as Record<string, string> | undefined;
